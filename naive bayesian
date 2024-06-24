@@ -1,68 +1,45 @@
-def probAttr(data, attr, val):
-    Total = data.shape[0]
-    cnt = len(data[data[attr] == val])
-    return cnt, cnt / Total
-
-def train(data, Attr, conceptVals, concept): 
-    conceptProbs = {}
-    countConcept = {}
-    for cVal in conceptVals:
-        countConcept[cVal], conceptProbs[cVal] = probAttr(data, concept, cVal)
-    
-    AttrConcept = {}
-    probability_list = {}
-    for att in Attr:
-        probability_list[att] = {}
-        AttrConcept[att] = {}
-        for val in Attr[att]:
-            AttrConcept[att][val] = {}
-            a, probability_list[att][val] = probAttr(data, att, val)
-            for cVal in conceptVals:
-                dataTemp = data[data[att] == val]
-                AttrConcept[att][val][cVal] = len(dataTemp[dataTemp[concept] == cVal]) / countConcept[cVal]
-            
-    print("P(A) : ", conceptProbs, "\n")
-    print("P(X/A) : ", AttrConcept, "\n")
-    print("P(X) : ", probability_list, "\n")
-    return conceptProbs, AttrConcept, probability_list
-
-def test(examples, Attr, concept_list, conceptProbs, AttrConcept, probability_list):
-    misclassification_count = 0
-    Total = len(examples)
-    for ex in examples:
-        px = {}
-        for a in Attr:
-            for x in ex:
-                for c in concept_list:
-                    if x in AttrConcept[a]:
-                        if c not in px:
-                            px[c] = conceptProbs[c] * AttrConcept[a][x][c] / probability_list[a][x]
-                        else:
-                            px[c] = px[c] * AttrConcept[a][x][c] / probability_list[a][x]
-        print(px)
-        classification = max(px, key=px.get)
-        print("Classification :", classification, "Expected :", ex[-1])
-        if classification != ex[-1]:
-            misclassification_count += 1
-    misclassification_rate = misclassification_count * 100 / Total
-    accuracy = 100 - misclassification_rate
-    print("Misclassification Count={}".format(misclassification_count))
-    print("Misclassification Rate={}%".format(misclassification_rate))
-    print("Accuracy={}%".format(accuracy))
-
-
 import pandas as pd
-from pandas import DataFrame 
-data = pd.read_csv('PlayTennis.csv')
-print(data)
-concept = str(list(data)[-1])
-print(concept)
-concept_list = set(data[concept])
-print(concept_list)
-Attr = {}
-for a in list(data)[:-1]:
-     Attr[a] = set(data[a])
-conceptProbs, AttrConcept, probability_list = train(data, Attr, concept_list, concept)
 
-examples = pd.read_csv('PlayTennis.csv')
-test(examples.values, Attr, concept_list, conceptProbs, AttrConcept, probability_list)
+msg = pd.read_csv('document.csv', names=['message', 'label'])
+print("The dimensions of the Dataset: ", msg.shape)
+
+msg['labelnum'] = msg.label.map({'pos': 1, 'neg': 0})
+
+X = msg.message
+y = msg.labelnum
+
+print(X)
+print(y)
+
+from sklearn.model_selection import train_test_split
+
+Xtrain, Xtest, ytrain, ytest = train_test_split(X, y)
+
+print("\n Total no. of training data", ytrain.shape)
+print("\n Total no. of test data", ytest.shape)
+
+from sklearn.feature_extraction.text import CountVectorizer
+
+count_vect = CountVectorizer()
+
+Xtrain_dtm = count_vect.fit_transform(Xtrain)
+Xtest_dtm = count_vect.transform(Xtest)
+
+print("\n The words or tokens in the text document")
+print(count_vect.get_feature_names_out())
+
+df = pd.DataFrame(Xtrain_dtm.toarray(), columns=count_vect.get_feature_names_out())
+
+from sklearn.naive_bayes import MultinomialNB
+
+clf = MultinomialNB()
+clf.fit(Xtrain_dtm, ytrain)
+
+predicted=clf.predict(Xtest_dtm)
+
+from sklearn import metrics 
+
+print('\n Accuracy of the classifier is: ', metrics.accuracy_score(ytest, predicted))
+print('Confusion Matrix: \n', metrics.confusion_matrix(ytest, predicted))
+print('The value of Precision: ', metrics.precision_score(ytest, predicted))
+print('The value of Recall: ', metrics.recall_score(ytest, predicted))
